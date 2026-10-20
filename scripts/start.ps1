@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $upstreamDir = Join-Path $repoRoot 'vendor\iptv-api'
+$composeFile = Join-Path $upstreamDir 'docker-compose.yml'
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     Write-Host "Docker was not found. Run .\scripts\install.ps1 first." -ForegroundColor Red
@@ -16,6 +17,19 @@ if (-not (Test-Path (Join-Path $upstreamDir '.git'))) {
 } else {
     Write-Host "Updating Guovin/iptv-api..." -ForegroundColor Cyan
     git -C $upstreamDir pull --ff-only
+}
+
+if (-not (Test-Path $composeFile)) {
+    Write-Host "docker-compose.yml was not found in: $upstreamDir" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Checking Docker Compose config..." -ForegroundColor Cyan
+$content = Get-Content -Path $composeFile -Raw
+if ($content.Contains('image: guovern/iptv-api:latest')) {
+    Write-Host "Switching Docker Compose to a local build to avoid the broken image pull path." -ForegroundColor Yellow
+    $updated = $content -replace 'image:\s*guovern/iptv-api:latest', 'build: .'
+    Set-Content -Path $composeFile -Value $updated -Encoding UTF8
 }
 
 Set-Location $upstreamDir
